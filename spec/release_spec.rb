@@ -210,6 +210,37 @@ module Bosh::Workspace
       end
     end
 
+    context "given a release that has the whole templates/ dir symlinked from a submodule" do
+      let(:repo) { extracted_asset_dir("supermodule-all-templates-symlinked", "supermodule-all-templates-symlinked-boshrelease-repo.zip") }
+      let(:subrepo) { extracted_asset_dir("submodule-boshrelease", "submodule-boshrelease-repo.zip") }
+      let(:name) { "supermodule-all-templates-symlinked" }
+      let(:version) { "1" }
+
+      before do
+        FileUtils.rm_rf(releases_dir)
+        allow_any_instance_of(Rugged::Submodule).to receive(:url).and_return(subrepo)
+      end
+
+      describe "#update_repo" do
+        subject { Rugged::Repository.new(File.join(releases_dir, name)) }
+
+        context "with templates in submodules" do
+          before do
+            release = load_release("name" => name, "version" => 1, "git" => repo)
+          end
+
+          it "clones + checks out required submodules" do
+            expect(subject.submodules["src/submodule"].workdir_oid)
+                .to eq "95eed8c967af969d659a766b0551a75a729a7b65"
+          end
+
+          it "doesn't clone/checkout extraneous submodules" do
+            expect(subject.submodules["src/other"].workdir_oid).to eq nil
+          end
+        end
+      end
+    end
+
     context "given a release with deprecated structure within 'releases' folder" do
       let(:repo) { extracted_asset_dir("foo", "foo-boshrelease-repo.zip") }
 
@@ -261,6 +292,53 @@ module Bosh::Workspace
             release.update_repo
             expect(subject).to match(/foo-2.yml/)
             expect(subject).to_not match(/foo-3.yml/)
+          end
+        end
+
+        context "specific ref from different branch with specific release" do
+          let(:release_data) do
+            {"name" => name, "version" => "9.1", "ref" => "9c899", "git" => repo}
+          end
+
+          it "checks out repo" do
+            release.update_repo
+            expect(subject).to match(/foo-9.1.yml/)
+          end
+        end
+
+        context "specific ref from different branch with latest release" do
+          let(:release_data) do
+            {"name" => name, "version" => "latest", "ref" => "9c899", "git" => repo}
+          end
+
+          it "checks out repo" do
+            release.update_repo
+            expect(subject).to match(/foo-9.2.yml/)
+            expect(subject).to_not match(/foo-10.yml/)
+          end
+        end
+
+        context "specific tag latest release" do
+          let(:release_data) do
+            {"name" => name, "version" => "latest", "ref" => "refs/tags/v8", "git" => repo}
+          end
+
+          it "checks out repo" do
+
+            release.update_repo
+            expect(subject).to match(/foo-8.yml/)
+          end
+        end
+
+        context "specific tag from different branch with latest release" do
+          let(:release_data) do
+            {"name" => name, "version" => "9.1", "ref" => "refs/tags/v9.1", "git" => repo}
+          end
+
+          it "checks out repo" do
+            release.update_repo
+            expect(subject).to match(/foo-9.1.yml/)
+            expect(subject).to_not match(/foo-9.2.yml/)
           end
         end
 
@@ -451,12 +529,11 @@ module Bosh::Workspace
     end
 
     context "correct checkout behavior:" do
-      let(:repo) { extracted_asset_dir("foo", "foo-boshrelease-repo.zip") }
       let(:release_data) { { "name" => name, "version" => version,
-                             "git" => repo, "ref" => :fooref } }
+                             "git" => repo, "ref" => 'e0b35d6' } }
       let(:repo) { 'foo/bar' }
       let(:repository) do
-        instance_double('Rugged::Repository', lookup: double(oid: :fooref))
+        instance_double('Rugged::Repository', lookup: double(oid: 'e0b35d6'))
       end
 
       describe "#update_repo_with_ref" do
@@ -472,6 +549,7 @@ module Bosh::Workspace
             { 'refs/remotes/origin/HEAD' =>
               double(resolve: double(target_id: :oid)) }
           end
+          allow(subject).to receive(:repo_exists?).and_return(true)
         end
 
         it "calls checkout_tree and checkout" do

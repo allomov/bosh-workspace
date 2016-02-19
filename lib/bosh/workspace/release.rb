@@ -1,6 +1,6 @@
 module Bosh::Workspace
   class Release
-    REFSPEC = ['HEAD:refs/remotes/origin/HEAD']
+    REFSPEC = ['HEAD:refs/remotes/origin/HEAD','*:refs/remotes/origin/*']
     attr_reader :name, :git_url, :repo_dir
 
     def initialize(release, releases_dir, credentials_callback, options = {})
@@ -39,7 +39,10 @@ module Bosh::Workspace
     end
 
     def ref
-      @ref && repo.lookup(@ref).oid
+      return nil unless @ref
+      return repo.ref(@ref).target.target.oid if
+        Rugged::Reference.valid_name?(@ref) && repo.ref(@ref)
+      repo.lookup(@ref).oid
     end
 
     def release_dir
@@ -104,6 +107,8 @@ module Bosh::Workspace
     end
 
     def update_repo_with_ref(repository, ref)
+#      require 'pry'
+#     binding.pry
       repository.checkout_tree ref, strategy: :force
       repository.checkout ref, strategy: :force
     end
@@ -181,6 +186,7 @@ module Bosh::Workspace
     end
 
     def symlink_templates
+      return [symlink_target(templates_dir)] if File.symlink?(templates_dir)
       return [] unless File.exist?(templates_dir)
       Find.find(templates_dir)
         .select { |f| File.symlink?(f) }.map { |f| symlink_target(f) }

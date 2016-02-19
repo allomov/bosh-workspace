@@ -65,6 +65,7 @@ templates:
   - cf/cf-deployment.yml
   - cf/cf-jobs.yml
   - cf/cf-properties.yml
+  - cf/cf-resource-pools.yml
   - cf/cf-infrastructure-warden.yml
   - cf/cf-minimal-dev.yml
 
@@ -128,14 +129,14 @@ Example `.credentials.yml` file:
 ### OSX
 cmake isneeded and libssh2 is optionally (only needed when using cloning over ssh)
 ```
-brew install cmake libssh2
+brew install cmake libssh2 pkg-config
 ```
 
 ### Ubuntu
 cmake and libcurl4-openssl-dev is needed for rugged install
 
 ```
-sudo apt-get install cmake libcurl4-openssl-dev
+sudo apt-get install cmake libcurl4-openssl-dev libssh2-1-dev
 ```
 
 ## Experimental
