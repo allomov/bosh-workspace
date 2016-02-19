@@ -11,19 +11,19 @@ module Bosh::Cli::Command
 
     usage "deployment"
     desc "Get/set current deployment"
+    option "--without-uuid-check", "don't connect to BOSH director to set current workspace or deployment"
     def set_current(filename = nil)
       unless filename.nil?
-        deployment = find_deployment(filename)
-
-        if project_deployment_file?(deployment)
-          self.project_deployment = deployment
+        deployment_file_path = find_deployment(filename)
+        if project_deployment_file?(deployment_file_path)
+          self.project_deployment = deployment_file_path
           validate_project_deployment
           filename = project_deployment.merged_file
           create_placeholder_deployment unless File.exists?(filename)
         end
       end
 
-      deployment_cmd(options).set_current(filename)
+      deployment = deployment_cmd(options)
     end
 
     # Hack to unregister original deploy command
@@ -43,6 +43,14 @@ module Bosh::Cli::Command
       @exit_code = command.exit_code
     end
 
+    usage "build deployment"
+    desc "Build the project deployment without triggering deploy"
+    def build_deployment(deployment = nil)
+      deployment_file_path = find_deployment(deployment)
+      self.project_deployment = deployment_file_path
+      ManifestBuilder.build(self.project_deployment, work_dir)
+    end
+
     private
 
     def deployment_cmd(options = {})
@@ -50,5 +58,6 @@ module Bosh::Cli::Command
         options.each { |k, v| cmd.add_option k.to_sym, v }
       end
     end
+
   end
 end
